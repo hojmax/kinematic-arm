@@ -1,62 +1,69 @@
-// Root position
-let x = 250
-let y = 250
-// Length of segments
-let l1 = 140
-let l2 = 100
-// Angle of segments
-let a1 = 0.5
-let a2 = 2
-// End points of segments
-let end1X, end1Y, end2X, end2Y
+let arm
 
 function setup() {
   createCanvas(500, 500)
-  updateEndPoints()
   noFill()
+  // Længderne af segments'ne må helst ikke være lig hinanden
+  // For så får armen lidt en tendens til massiv stivkrampe fordi gradienten i visse tilfælde vil være lig hinanden for alle vinklerne
+  // Dette sker også selvom vinklernes startværdier er forskellige, hvis man f.eks. strækker armen helt ud i nogle sekunder
+  arm = new KinematicArm(250, 250, [50.1, 50.2, 50.3, 50.4])
 }
 
 function draw() {
   background(200)
-  drawArm()
-  drawBounds()
-  updateArm()
-  updateEndPoints()
+  arm.draw()
+  arm.seek(mouseX, mouseY)
 }
 
-function drawBounds() {
-  strokeWeight(1)
-  ellipse(x, y, (l1 + l2) * 2)
-  ellipse(x, y, abs(l1 - l2) * 2)
-}
-
-function updateArm() {
-  let gradient = getGradient()
-  let changeRate = min(dist(mouseX, mouseY, end2X, end2Y) / 25000, 0.005)
-  a1 -= gradient.a1 * changeRate
-  a2 -= gradient.a2 * changeRate
-}
-
-function updateEndPoints() {
-  end1X = x + l1 * cos(a1)
-  end1Y = y + l1 * sin(a1)
-  end2X = end1X + l2 * cos(a2)
-  end2Y = end1Y + l2 * sin(a2)
-}
-
-function drawArm() {
-  strokeWeight(10)
-  stroke('rgba(0, 0, 0, 0.5)')
-  line(x, y, end1X, end1Y)
-  line(end1X, end1Y, end2X, end2Y)
-}
-
-function getGradient() {
-  let mX = mouseX - x
-  let mY = mouseY - y
-  return {
-    // Oh Maple our lord and savior 🙏
-    a1: (-2 * (cos(a1) * l1 + cos(a2) * l2 - mX) * sin(a1) * l1 + 2 * (sin(a1) * l1 + sin(a2) * l2 - mY) * cos(a1) * l1) / (2 * sqrt(pow((cos(a1) * l1 + cos(a2) * l2 - mX), 2) + pow((sin(a1) * l1 + sin(a2) * l2 - mY), 2))),
-    a2: (-2 * (cos(a1) * l1 + cos(a2) * l2 - mX) * sin(a2) * l2 + 2 * (sin(a1) * l1 + sin(a2) * l2 - mY) * cos(a2) * l2) / (2 * sqrt(pow((cos(a1) * l1 + cos(a2) * l2 - mX), 2) + pow((sin(a1) * l1 + sin(a2) * l2 - mY), 2)))
+class KinematicArm {
+  constructor(x, y, segments) {
+    this.root = {
+      x: x,
+      y: y
+    }
+    this.segments = segments
+    this.angles = new Array(this.segments.length).fill(0)
+    this.updateJointPositions()
+  }
+  draw() {
+    strokeWeight(10)
+    stroke('rgba(0, 0, 0, 0.5)')
+    for (let i = 1; i < this.joints.length; i++) {
+      line(this.joints[i - 1].x, this.joints[i - 1].y, this.joints[i].x, this.joints[i].y)
+    }
+  }
+  updateJointPositions() {
+    let currentJoints = [{
+      x: this.root.x,
+      y: this.root.y
+    }]
+    for (let i in this.segments) {
+      currentJoints.push({
+        x: currentJoints[i].x + this.segments[i] * cos(this.angles[i]),
+        y: currentJoints[i].y + this.segments[i] * sin(this.angles[i])
+      })
+    }
+    this.joints = currentJoints
+  }
+  getGradient(x, y) {
+    let handX = this.joints[this.joints.length - 1].x
+    let handY = this.joints[this.joints.length - 1].y
+    let deltaX = x - handX
+    let deltaY = y - handY
+    let divisor = sqrt(deltaX * deltaX + deltaY * deltaY)
+    let gradient = []
+    for (let i in this.segments) {
+      gradient.push((deltaX * sin(this.angles[i]) * this.segments[i] - deltaY * cos(this.angles[i]) * this.segments[i]) / divisor)
+    }
+    return gradient
+  }
+  seek(x, y) {
+    let gradient = this.getGradient(x, y)
+    let targetDistance = dist(x, y, this.joints[this.joints.length - 1].x, this.joints[this.joints.length - 1].y)
+    let changeRate = min(targetDistance / 25000, 0.005)
+    for (let i in this.angles) {
+      this.angles[i] -= gradient[i] * changeRate
+    }
+    this.updateJointPositions()
   }
 }
