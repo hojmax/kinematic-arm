@@ -32,7 +32,7 @@ function drawBounds() {
 
 function updateArm() {
   let gradient = getGradient()
-  let changeRate = dist(mouseX, mouseY, end2X, end2Y) / 25000
+  let changeRate = min(dist(mouseX, mouseY, end2X, end2Y) / 25000, 0.005)
   a1 -= gradient.a1 * changeRate
   a2 -= gradient.a2 * changeRate
 }
